@@ -1,0 +1,499 @@
+diff --git a/configure b/configure
+index 2f35e78..d716afa 100755
+--- a/configure
++++ b/configure
+@@ -23384,6 +23384,10 @@ fi
+             pthread_cflags="-D_REENTRANT"
+             pthread_lib=""
+             ;;
++        *-*-lunix*)
++            pthread_cflags="-D_REENTRANT"
++            pthread_lib=""
++            ;;
+         *)
+             pthread_cflags="-D_REENTRANT"
+             pthread_lib="-lpthread"
+@@ -23398,7 +23402,12 @@ fi
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pthreads" >&5
+ $as_echo_n "checking for pthreads... " >&6; }
+         use_pthreads=no
+-        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++        case "$host" in
++            *-*-lunix*)
++                use_pthreads=yes
++                ;;
++            *)
++                cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
+          #include <pthread.h>
+@@ -23407,8 +23416,8 @@ int
+ main ()
+ {
+ 
+-         pthread_attr_t type;
+-         pthread_attr_init(&type);
++         pthread_t thread;
++         pthread_create(&thread, 0, 0, 0);
+ 
+   ;
+   return 0;
+@@ -23421,6 +23430,8 @@ if ac_fn_c_try_link "$LINENO"; then :
+ fi
+ rm -f core conftest.err conftest.$ac_objext \
+     conftest$ac_exeext conftest.$ac_ext
++                ;;
++        esac
+         { $as_echo "$as_me:${as_lineno-$LINENO}: result: $use_pthreads" >&5
+ $as_echo "$use_pthreads" >&6; }
+         # Restore the compiler flags and libraries
+@@ -24787,6 +24798,7 @@ $as_echo "#define SDL_VIDEO_DRIVER_ANDROID 1" >>confdefs.h
+             *-*-solaris*)       ARCH=solaris ;;
+             *-*-hpux*)          ARCH=hpux ;;
+             *-*-aix*)           ARCH=aix ;;
++            *-*-lunix*)         ARCH=lunix ;;
+             *-*-minix*)         ARCH=minix ;;
+             *-*-nto*)           ARCH=nto
+                 CheckQNXVideo
+@@ -24884,6 +24896,14 @@ $as_echo "#define SDL_AUDIO_DRIVER_ANDROID 1" >>confdefs.h
+                 SUMMARY_audio="${SUMMARY_audio} android"
+                 have_audio=yes
+             ;;
++            lunix)
++
++$as_echo "#define SDL_AUDIO_DRIVER_LUNIX 1" >>confdefs.h
++
++                SOURCES="$SOURCES $srcdir/src/audio/lunix/*.c"
++                SUMMARY_audio="${SUMMARY_audio} lunix"
++                have_audio=yes
++            ;;
+             nto)
+                 CheckQNXAudio
+             ;;
+@@ -28736,4 +28756,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
+   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
+ $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
+ fi
+-
+diff --git a/configure.ac b/configure.ac
+index 13daba3..124330d 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -2927,6 +2927,10 @@ AS_HELP_STRING([--enable-pthread-sem], [use pthread semaphores [[default=yes]]])
+             pthread_cflags="-D_REENTRANT"
+             pthread_lib=""
+             ;;
++        *-*-lunix*)
++            pthread_cflags="-D_REENTRANT"
++            pthread_lib=""
++            ;;
+         *)
+             pthread_cflags="-D_REENTRANT"
+             pthread_lib="-lpthread"
+@@ -2940,14 +2944,21 @@ AS_HELP_STRING([--enable-pthread-sem], [use pthread semaphores [[default=yes]]])
+         # Check to see if we have pthread support on this system
+         AC_MSG_CHECKING(for pthreads)
+         use_pthreads=no
+-        AC_TRY_LINK([
+-         #include <pthread.h>
+-        ],[
+-         pthread_attr_t type;
+-         pthread_attr_init(&type);
+-        ],[
+-        use_pthreads=yes
+-        ])
++        case "$host" in
++            *-*-lunix*)
++                use_pthreads=yes
++                ;;
++            *)
++                AC_TRY_LINK([
++                 #include <pthread.h>
++                ],[
++                 pthread_t thread;
++                 pthread_create(&thread, 0, 0, 0);
++                ],[
++                use_pthreads=yes
++                ])
++                ;;
++        esac
+         AC_MSG_RESULT($use_pthreads)
+         # Restore the compiler flags and libraries
+         CFLAGS="$ac_save_cflags"; LIBS="$ac_save_libs"
+@@ -3546,6 +3557,7 @@ case "$host" in
+             *-*-solaris*)       ARCH=solaris ;;
+             *-*-hpux*)          ARCH=hpux ;;
+             *-*-aix*)           ARCH=aix ;;
++            *-*-lunix*)         ARCH=lunix ;;
+             *-*-minix*)         ARCH=minix ;;
+             *-*-nto*)           ARCH=nto
+                 CheckQNXVideo
+@@ -3635,6 +3647,12 @@ case "$host" in
+                 SUMMARY_audio="${SUMMARY_audio} android"
+                 have_audio=yes
+             ;;
++            lunix)
++                AC_DEFINE(SDL_AUDIO_DRIVER_LUNIX, 1, [ ])
++                SOURCES="$SOURCES $srcdir/src/audio/lunix/*.c"
++                SUMMARY_audio="${SUMMARY_audio} lunix"
++                have_audio=yes
++            ;;
+             nto)
+                 CheckQNXAudio
+             ;;
+diff --git a/include/SDL_config.h.in b/include/SDL_config.h.in
+index e71b483..7cdada5 100644
+--- a/include/SDL_config.h.in
++++ b/include/SDL_config.h.in
+@@ -274,6 +274,7 @@
+ #undef SDL_AUDIO_DRIVER_JACK_DYNAMIC
+ #undef SDL_AUDIO_DRIVER_NACL
+ #undef SDL_AUDIO_DRIVER_NAS
++#undef SDL_AUDIO_DRIVER_LUNIX
+ #undef SDL_AUDIO_DRIVER_NAS_DYNAMIC
+ #undef SDL_AUDIO_DRIVER_NETBSD
+ #undef SDL_AUDIO_DRIVER_OSS
+diff --git a/src/audio/SDL_audio.c b/src/audio/SDL_audio.c
+index 16d29f9..ebb5f4d 100644
+--- a/src/audio/SDL_audio.c
++++ b/src/audio/SDL_audio.c
+@@ -107,6 +107,9 @@ static const AudioBootStrap *const bootstrap[] = {
+ #if SDL_AUDIO_DRIVER_OS2
+     &OS2AUDIO_bootstrap,
+ #endif
++#if SDL_AUDIO_DRIVER_LUNIX
++    &LUNIXAUDIO_bootstrap,
++#endif
+ #if SDL_AUDIO_DRIVER_DISK
+     &DISKAUDIO_bootstrap,
+ #endif
+diff --git a/src/audio/SDL_sysaudio.h b/src/audio/SDL_sysaudio.h
+index 350a6d0..45f00a0 100644
+--- a/src/audio/SDL_sysaudio.h
++++ b/src/audio/SDL_sysaudio.h
+@@ -202,6 +202,7 @@ extern AudioBootStrap HAIKUAUDIO_bootstrap;
+ extern AudioBootStrap COREAUDIO_bootstrap;
+ extern AudioBootStrap DISKAUDIO_bootstrap;
+ extern AudioBootStrap DUMMYAUDIO_bootstrap;
++extern AudioBootStrap LUNIXAUDIO_bootstrap;
+ extern AudioBootStrap FUSIONSOUND_bootstrap;
+ extern AudioBootStrap openslES_bootstrap;
+ extern AudioBootStrap ANDROIDAUDIO_bootstrap;
+diff --git a/tmp/sdl2patch.ytXjUk/current/src/audio/lunix/SDL_lunixaudio.c b/src/audio/lunix/SDL_lunixaudio.c
+new file mode 100644
+index 0000000..220fcc2
+--- /dev/null
++++ b/src/audio/lunix/SDL_lunixaudio.c
+@@ -0,0 +1,227 @@
++#include "../../SDL_internal.h"
++
++#if SDL_AUDIO_DRIVER_LUNIX
++
++#include <devctl.h>
++#include <errno.h>
++#include <fcntl.h>
++#include <lunix/audio.h>
++#include <string.h>
++#include <unistd.h>
++
++#include "SDL_audio.h"
++#include "SDL_timer.h"
++#include "../SDL_audio_c.h"
++#include "SDL_lunixaudio.h"
++
++static const char *lunixAudioDevice = "/dev/audio";
++
++static int
++LUNIXAUDIO_GetBufferInfo(_THIS, struct audio_buffer_info *bufferInfo)
++{
++    int info = -1;
++
++    errno = posix_devctl(this->hidden->audio_fd, AUDIO_GET_BUFFER_INFO,
++            bufferInfo, sizeof(*bufferInfo), &info);
++    if (errno != 0 || info != 0) {
++        return -1;
++    }
++
++    return 0;
++}
++
++static void
++LUNIXAUDIO_WaitDevice(_THIS)
++{
++    struct audio_buffer_info bufferInfo;
++    Uint32 delay;
++
++    if (this->hidden->bytes_per_second == 0) {
++        return;
++    }
++
++    while (LUNIXAUDIO_GetBufferInfo(this, &bufferInfo) == 0) {
++        if (bufferInfo.queued <= this->hidden->target_queue_bytes) {
++            return;
++        }
++
++        delay = (Uint32) ((((Uint64) bufferInfo.queued -
++                this->hidden->target_queue_bytes) * 1000) /
++                this->hidden->bytes_per_second);
++        SDL_Delay(delay ? delay : 1);
++    }
++
++    delay = (Uint32) this->spec.samples * 1000 / this->spec.freq;
++    SDL_Delay(delay ? delay : 1);
++}
++
++static int
++LUNIXAUDIO_ApplyFormat(_THIS, int sampleRate)
++{
++    struct audio_format requested;
++    struct audio_format actual;
++    int info = -1;
++
++    requested.sample_rate = sampleRate;
++    requested.channels = 2;
++    requested.encoding = AUDIO_ENCODING_S16_LE;
++    requested.bits_per_sample = 16;
++    requested.frame_size = 4;
++
++    errno = posix_devctl(this->hidden->audio_fd, AUDIO_SET_FORMAT, &requested,
++            sizeof(requested), &info);
++    if (errno != 0 || info != 0) {
++        return -1;
++    }
++
++    actual = requested;
++    info = -1;
++    errno = posix_devctl(this->hidden->audio_fd, AUDIO_GET_FORMAT, &actual,
++            sizeof(actual), &info);
++    if (errno != 0 || info != 0) {
++        actual = requested;
++    }
++
++    if (actual.channels != 2 || actual.encoding != AUDIO_ENCODING_S16_LE ||
++            actual.bits_per_sample != 16 || actual.frame_size != 4) {
++        return SDL_SetError("Unsupported /dev/audio format");
++    }
++
++    this->spec.freq = actual.sample_rate;
++    this->spec.format = AUDIO_S16LSB;
++    this->spec.channels = actual.channels;
++    return 0;
++}
++
++static void
++LUNIXAUDIO_PlayDevice(_THIS)
++{
++    Uint8 *buffer = this->hidden->mixbuf;
++    int remaining = this->hidden->mixlen;
++
++    while (remaining > 0) {
++        ssize_t bytes = write(this->hidden->audio_fd, buffer, remaining);
++        if (bytes > 0) {
++            buffer += bytes;
++            remaining -= bytes;
++            continue;
++        }
++
++        if (bytes < 0 && errno == EINTR) {
++            continue;
++        }
++
++        SDL_OpenedAudioDeviceDisconnected(this);
++        break;
++    }
++}
++
++static Uint8 *
++LUNIXAUDIO_GetDeviceBuf(_THIS)
++{
++    return this->hidden->mixbuf;
++}
++
++static void
++LUNIXAUDIO_PrepareToClose(_THIS)
++{
++    int info = -1;
++    errno = posix_devctl(this->hidden->audio_fd, AUDIO_DRAIN, NULL, 0, &info);
++    (void) info;
++}
++
++static void
++LUNIXAUDIO_CloseDevice(_THIS)
++{
++    if (this->hidden != NULL) {
++        if (this->hidden->audio_fd >= 0) {
++            close(this->hidden->audio_fd);
++        }
++        SDL_free(this->hidden->mixbuf);
++        SDL_free(this->hidden);
++    }
++}
++
++static int
++LUNIXAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
++{
++    const int requestedFreq = this->spec.freq;
++    int firstFreq;
++    int secondFreq;
++    (void) handle;
++    (void) devname;
++
++    if (iscapture) {
++        return SDL_SetError("Lunix audio capture is not supported");
++    }
++
++    this->hidden = (struct SDL_PrivateAudioData *) SDL_calloc(1,
++            sizeof(*this->hidden));
++    if (this->hidden == NULL) {
++        return SDL_OutOfMemory();
++    }
++
++    this->hidden->audio_fd = open(lunixAudioDevice, O_WRONLY);
++    if (this->hidden->audio_fd < 0) {
++        return SDL_SetError("Couldn't open %s: %s", lunixAudioDevice,
++                strerror(errno));
++    }
++
++    this->spec.format = AUDIO_S16LSB;
++    this->spec.channels = 2;
++
++    if (requestedFreq == 44100 || requestedFreq == 48000) {
++        firstFreq = requestedFreq;
++        secondFreq = requestedFreq == 44100 ? 48000 : 44100;
++    } else if (SDL_abs(requestedFreq - 48000) <= SDL_abs(requestedFreq - 44100)) {
++        firstFreq = 48000;
++        secondFreq = 44100;
++    } else {
++        firstFreq = 44100;
++        secondFreq = 48000;
++    }
++
++    if (LUNIXAUDIO_ApplyFormat(this, firstFreq) < 0 &&
++            LUNIXAUDIO_ApplyFormat(this, secondFreq) < 0) {
++        return SDL_SetError("Couldn't configure %s for %d Hz or %d Hz",
++                lunixAudioDevice, firstFreq, secondFreq);
++    }
++
++    SDL_CalculateAudioSpec(&this->spec);
++
++    this->hidden->mixlen = this->spec.size;
++    this->hidden->bytes_per_second = (Uint32) this->spec.freq *
++            this->spec.channels * (SDL_AUDIO_BITSIZE(this->spec.format) / 8);
++    this->hidden->target_queue_bytes = (Uint32) this->hidden->mixlen;
++    this->hidden->mixbuf = (Uint8 *) SDL_malloc(this->hidden->mixlen);
++    if (this->hidden->mixbuf == NULL) {
++        return SDL_OutOfMemory();
++    }
++
++    SDL_memset(this->hidden->mixbuf, this->spec.silence, this->spec.size);
++    return 0;
++}
++
++static int
++LUNIXAUDIO_Init(SDL_AudioDriverImpl *impl)
++{
++    if (access(lunixAudioDevice, W_OK) < 0) {
++        return 0;
++    }
++
++    impl->OpenDevice = LUNIXAUDIO_OpenDevice;
++    impl->WaitDevice = LUNIXAUDIO_WaitDevice;
++    impl->PlayDevice = LUNIXAUDIO_PlayDevice;
++    impl->GetDeviceBuf = LUNIXAUDIO_GetDeviceBuf;
++    impl->PrepareToClose = LUNIXAUDIO_PrepareToClose;
++    impl->CloseDevice = LUNIXAUDIO_CloseDevice;
++    impl->OnlyHasDefaultOutputDevice = 1;
++
++    return 1;
++}
++
++AudioBootStrap LUNIXAUDIO_bootstrap = {
++    "lunix", "Lunix /dev/audio", LUNIXAUDIO_Init, 0
++};
++
++#endif
+diff --git a/tmp/sdl2patch.ytXjUk/current/src/audio/lunix/SDL_lunixaudio.h b/src/audio/lunix/SDL_lunixaudio.h
+new file mode 100644
+index 0000000..52f5258
+--- /dev/null
++++ b/src/audio/lunix/SDL_lunixaudio.h
+@@ -0,0 +1,19 @@
++#include "../../SDL_internal.h"
++
++#ifndef SDL_lunixaudio_h_
++#define SDL_lunixaudio_h_
++
++#include "../SDL_sysaudio.h"
++
++#define _THIS SDL_AudioDevice *this
++
++struct SDL_PrivateAudioData
++{
++    int audio_fd;
++    Uint8 *mixbuf;
++    int mixlen;
++    Uint32 bytes_per_second;
++    Uint32 target_queue_bytes;
++};
++
++#endif
+diff --git a/src/thread/pthread/SDL_systhread.c b/src/thread/pthread/SDL_systhread.c
+index afed1d9..c1d60b5 100644
+--- a/src/thread/pthread/SDL_systhread.c
++++ b/src/thread/pthread/SDL_systhread.c
+@@ -65,7 +65,13 @@
+ /* List of signals to mask in the subthreads */
+ static const int sig_list[] = {
+     SIGHUP, SIGINT, SIGQUIT, SIGPIPE, SIGALRM, SIGTERM, SIGCHLD, SIGWINCH,
+-    SIGVTALRM, SIGPROF, 0
++#ifdef SIGVTALRM
++    SIGVTALRM,
++#endif
++#ifdef SIGPROF
++    SIGPROF,
++#endif
++    0
+ };
+ #endif
+ 
+@@ -89,6 +95,11 @@ static int (*ppthread_setname_np)(pthread_t, const char*) = NULL;
+ int
+ SDL_SYS_CreateThread(SDL_Thread * thread)
+ {
++#if defined(__lunix__)
++    if (pthread_create(&thread->handle, NULL, RunThread, thread) != 0) {
++        return SDL_SetError("Not enough resources to create thread");
++    }
++#else
+     pthread_attr_t type;
+ 
+     /* do this here before any threads exist, so there's no race condition. */
+@@ -119,7 +130,7 @@ SDL_SYS_CreateThread(SDL_Thread * thread)
+     if (pthread_create(&thread->handle, &type, RunThread, thread) != 0) {
+         return SDL_SetError("Not enough resources to create thread");
+     }
+-
++#endif
+     return 0;
+ }
+ 
+@@ -169,7 +180,7 @@ SDL_SYS_SetupThread(const char *name)
+ #endif /* !__NACL__ */
+ 
+ 
+-#ifdef PTHREAD_CANCEL_ASYNCHRONOUS
++#if defined(PTHREAD_CANCEL_ASYNCHRONOUS) && !defined(__lunix__)
+     /* Allow ourselves to be asynchronously cancelled */
+     {
+         int oldstate;
+@@ -198,8 +209,8 @@ extern DECLSPEC int SDLCALL SDL_LinuxSetThreadPriorityAndPolicy(Sint64 threadID,
+ int
+ SDL_SYS_SetThreadPriority(SDL_ThreadPriority priority)
+ {
+-#if __NACL__ || __RISCOS__
+-    /* FIXME: Setting thread priority does not seem to be supported in NACL */
++#if __NACL__ || __RISCOS__ || __lunix__
++    /* FIXME: Setting thread priority does not seem to be supported on this platform */
+     return 0;
+ #else
+     struct sched_param sched;
